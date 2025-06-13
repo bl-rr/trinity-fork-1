@@ -3,7 +3,7 @@
 
 #include "compact_vector.h"
 #include <assert.h>
-#include <boost/bimap.hpp>
+// #include <boost/bimap.hpp>
 #include <cinttypes>
 #include <compressed_bitmap.h>
 #include <mutex>

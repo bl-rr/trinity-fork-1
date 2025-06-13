@@ -8,6 +8,8 @@
 #include <cmath>
 #include <sys/time.h>
 
+// preorder_t previous_selected = -1;
+
 template <dimension_t DIMENSION>
 class tree_block
 {
@@ -147,6 +149,8 @@ public:
         index_to_node[node_stack_top - 1].n_children_--;
       }
 
+      // std ::cout << "node_stack_top" << node_stack_top << std::endl;
+
       while (node_stack_top > 0 &&
              index_to_node[node_stack_top - 1].n_children_ == 0)
       {
@@ -175,6 +179,10 @@ public:
     preorder_t diff = (preorder_t)-1;
     auto leftmost = (preorder_t)-1;
 
+    if (subtree_stack_top == 1)
+    {
+      // std::cout << "Only one subtree found, returning it." << std::endl;
+    }
     for (preorder_t i = 0; i < subtree_stack_top; i++)
     {
       auto subtree_size_at_i = (preorder_t)index_to_subtree[i].subtree_size_;
@@ -192,6 +200,7 @@ public:
     if (leftmost == (preorder_t)-1)
     {
       min_node = index_to_subtree[1].preorder_;
+      // // std::cout << "mind_node: " << min_node << std::endl;
       if (num_nodes_ > 2 * index_to_subtree[1].subtree_size_)
       {
         min = num_nodes_ - 2 * index_to_subtree[1].subtree_size_;
@@ -557,6 +566,7 @@ public:
     return current_node_ret;
   }
 
+  // checking if this current_frontier is the right place to add?
   void insert(preorder_t node,
               preorder_t node_pos,
               data_point<DIMENSION> *leaf_point,
@@ -569,6 +579,7 @@ public:
 
     morton_t current_num_children = level_to_num_children[level];
 
+    // found the exact place to insert, the block
     if (level == max_depth_)
     {
 
@@ -597,10 +608,13 @@ public:
       return;
     }
 
+    // else need to go down levels of blocks
+
     preorder_t original_node = node;
     node_pos_t original_node_pos = node_pos;
     preorder_t max_tree_nodes;
 
+    /* dynamic resizing optimization
     if (root_depth_ <= max_depth_ / 2)
       max_tree_nodes = max_tree_nodes_ / 4;
     else if (root_depth_ <= max_depth_ / 4 * 3)
@@ -610,6 +624,15 @@ public:
 
     if (no_dynamic_sizing)
       max_tree_nodes = max_tree_nodes_;
+    */
+
+    // disabling dynamic resizing for now
+    max_tree_nodes = max_tree_nodes_;
+
+    // for (int i = 0; i < num_frontiers_; i++)
+    // {
+    //   // std::cout << "frontier[" << i << "].preorder_ = " << get_preorder(i) << std::endl;
+    // }
 
     if (frontiers_ != nullptr && current_frontier < num_frontiers_ &&
         node == get_preorder(current_frontier))
@@ -690,12 +713,14 @@ public:
     else if (num_nodes_ + (max_depth_ - level) - 1 <= node_capacity_) // the entire sub-nodes can fit in curret block without block extension
     {
       morton_t current_symbol = leaf_point->leaf_to_symbol(level);
+      // std::cout << "node_pos1: " << node_pos << std::endl;
       node = skip_children_subtree(node,
                                    node_pos,
                                    current_symbol,
                                    level,
                                    current_frontier,
                                    current_primary);
+      // std::cout << "node_pos2: " << node_pos << std::endl;
 
       preorder_t original_node_previous_bits =
           dfuds_->get_num_bits(original_node, level);
@@ -707,6 +732,8 @@ public:
 
       node_pos += dfuds_->get_num_bits(original_node, level) -
                   original_node_previous_bits;
+      // std::cout << "node_pos3: " << node_pos << std::endl;
+
       total_nodes_bits_ += dfuds_->get_num_bits(original_node, level) -
                            original_node_previous_bits;
 
@@ -771,7 +798,9 @@ public:
       if (frontiers_ != nullptr)
         for (preorder_t j = current_frontier; j < num_frontiers_; j++)
         {
+          // std::cout << j << "prev: " << get_preorder(j) << "  ";
           set_preorder(j, get_preorder(j) + max_depth_ - level);
+          // std::cout << "new: " << get_preorder(j) << std::endl;
           set_pointer(j, get_pointer(j)); // Prob not necessary
         }
 
@@ -824,6 +853,199 @@ public:
                                                 selected_primary_index,
                                                 node_to_primary,
                                                 node_to_depth);
+
+      // if (selected_node == 0)
+      // {
+      // printout all
+      // std::cout
+      // << "ERROR: selected_node == 0, subtree_size = " << subtree_size
+      // << ", selected_node_depth = " << selected_node_depth
+      // << ", selected_node_pos = " << selected_node_pos
+      // << ", num_primary = " << num_primary
+      // << ", selected_primary_index = " << selected_primary_index
+      // << std::endl;
+      // }
+
+      // if (selected_node == 0)
+
+      //   level_t split_level = (max_depth_ + root_depth_) / 2; // = 32 for max_depth_=64, root_depth_=1
+
+      //   uint64_t total_flag_bits = 0;
+      //   for (level_t d = root_depth_; d < split_level; ++d)
+      //   {
+      //     total_flag_bits += level_to_num_children[d];
+      //   }
+
+      //   tree_block<DIMENSION> *blockA = this;
+      //   preorder_t cur_node = 0;
+      //   preorder_t cur_node_pos = 0;
+      //   preorder_t cur_frontier = 0;
+      //   preorder_t cur_primary = 0;
+      //   level_t cur_level = root_depth_; // = 1
+
+      //   for (; cur_level < split_level; ++cur_level)
+      //   {
+      //     morton_t symbol = leaf_point->leaf_to_symbol(cur_level);
+
+      //     if (!blockA->dfuds_->has_symbol(
+      //             cur_node,
+      //             cur_node_pos,
+      //             symbol,
+      //             level_to_num_children[cur_level]))
+      //     {
+      //       blockA->dfuds_->set_symbol(
+      //           cur_node,
+      //           cur_node_pos,
+      //           symbol,
+      //           /* isNewChild = */ true,
+      //           level_to_num_children[cur_level]);
+      //     }
+
+      //     preorder_t next_node = blockA->child(
+      //         blockA,
+      //         cur_node,
+      //         cur_node_pos,
+      //         symbol,
+      //         cur_level,
+      //         cur_frontier,
+      //         cur_primary);
+      //     if (next_node == null_node)
+      //     {
+      //       // In the unlikely event child() returns −1, reset to root of this block:
+      //       cur_node = 0;
+      //       cur_node_pos = 0;
+      //       cur_frontier = 0;
+      //       cur_primary = 0;
+      //     }
+      //     else
+      //     {
+      //       cur_node = next_node;
+      //     }
+      //   }
+      //   blockA->insert_remaining(
+      //       leaf_point,
+      //       split_level, // “Start at depth = 32 →”
+      //       primary_key,
+      //       p_key_to_treeblock_compact);
+
+      //   // Return immediately so we don’t run the rest of insert(...) here.
+      //   return;
+      // }
+
+      // if (selected_node == 0)
+      // {
+      //   // Case: can't split — fallback to growing with a new empty block
+      //   auto *new_dfuds = new compressed_bitmap::compressed_bitmap(
+      //       1, /* initially empty but holds root */
+      //       total_nodes_bits_);
+
+      //   preorder_t frontier;
+      //   for (frontier = 0; frontier < num_frontiers_; frontier++)
+      //     if (get_preorder(frontier) > selected_node)
+      //       break;
+
+      //   preorder_t frontier_selected_node = frontier;
+      //   preorder_t insertion_node = node;
+      //   preorder_t insertion_node_pos = node_pos;
+      //   // std::cout << "insertion_node: " << insertion_node << " insertion_node_pos: " << insertion_node_pos << std::endl;
+
+      //   bool insertion_in_new_block = false;
+      //   bool is_in_root = false;
+
+      //   frontier_node<DIMENSION> *new_pointer_array = nullptr;
+      //   if (num_frontiers_ > 0)
+      //   {
+      //     new_pointer_array = (frontier_node<DIMENSION> *)malloc(
+      //         sizeof(frontier_node<DIMENSION>) * (num_frontiers_));
+      //   }
+      //   preorder_t current_frontier_new_block = 0;
+      //   preorder_t current_primary_new_block = 0;
+      //   preorder_t subtree_bits = 0;
+
+      //   new_pointer_array[0].preorder_ = 0;
+      //   new_pointer_array[0].pointer_ = get_pointer(frontier);
+
+      //   // maybe need to do something here
+
+      //   auto *new_block = new tree_block<DIMENSION>(
+      //       root_depth_, // or current insertion depth
+      //       0,
+      //       0,
+      //       0,
+      //       max_depth_,
+      //       max_tree_nodes_,
+      //       NULL,
+      //       new_dfuds);
+
+      //   // // std::cout << "frontiers_ before realloc: " << (void *)frontiers_ << std::endl;
+      //   // Determine insert position
+      //   // preorder_t frontier_selected_node = 0;
+      //   // for (; frontier_selected_node < num_frontiers_; frontier_selected_node++)
+      //   //   if (get_preorder(frontier_selected_node) > node)
+      //   //     break;
+
+      //   // Grow frontier array
+      //   frontiers_ = (frontier_node<DIMENSION> *)realloc(
+      //       frontiers_, sizeof(frontier_node<DIMENSION>) * (num_frontiers_ + 1));
+
+      //   // std::cerr << "[DEBUG] current frontiers before shift:";
+      //   // for (preorder_t i = 0; i < num_frontiers_; ++i)
+      //   // {
+      //   //   std::cerr << " (pre=" << get_preorder(i)
+      //   //             << ", ptr=" << get_pointer(i) << ")";
+      //   // }
+      //   // std::cerr << "\n→ Inserting at index = " << frontier_selected_node
+      //   //           << " with preorder = " << selected_node << "\n";
+
+      //   // Insert new block
+      //   for (preorder_t j = num_frontiers_; j > frontier_selected_node; --j)
+      //   {
+      //     set_preorder(j, get_preorder(j - 1));
+      //     set_pointer(j, get_pointer(j - 1));
+      //   }
+      //   set_preorder(frontier_selected_node, 0);
+      //   set_pointer(frontier_selected_node, new_block);
+      //   num_frontiers_++;
+
+      //   std::cerr << "[DEBUG] frontiers after shift+insert:";
+      //   for (preorder_t i = 0; i < num_frontiers_; ++i)
+      //   {
+      //     std::cerr << " (pre=" << get_preorder(i)
+      //               << ", ptr=" << get_pointer(i) << ")";
+      //   }
+      //   std::cerr << "\n";
+
+      //   new_block->insert(0, 0, leaf_point, level, 0, 0, primary_key, p_key_to_treeblock_compact);
+
+      //   // if (selected_node < num_nodes_)
+      //   // {
+
+      //   //   if (selected_node <= node)
+      //   //   {
+      //   //     insertion_node = node - selected_node + orig_selected_node;
+      //   //     insertion_node_pos =
+      //   //         node_pos - selected_node_pos + orig_selected_node_pos;
+      //   //   }
+      //   //   total_nodes_bits_ =
+      //   //       total_nodes_bits_ - selected_node_pos + orig_selected_node_pos;
+      //   //   dfuds_->shift_forward(selected_node,
+      //   //                         selected_node_pos,
+      //   //                         orig_selected_node,
+      //   //                         orig_selected_node_pos);
+      //   // }
+      //   // else if (selected_node >= num_nodes_)
+      //   // {
+
+      //   //   dfuds_->bulk_clear_node(orig_selected_node,
+      //   //                           orig_selected_node_pos,
+      //   //                           selected_node,
+      //   //                           selected_node_pos);
+      //   //   total_nodes_bits_ -= selected_node_pos - orig_selected_node_pos;
+      //   // }
+      //   return;
+      // }
+
+      // previous_selected = selected_node;
 
       // if (selected_node == 0)
       // {
@@ -946,7 +1168,9 @@ public:
         // to nPtrs
         for (preorder_t j = num_frontiers_; j > frontier_selected_node; j--)
         {
+          // std::cout << j << " prev1: " << get_preorder(j - 1) << "  ";
           set_preorder(j, get_preorder(j - 1) - subtree_size + 1);
+          // std::cout << "new1: " << get_preorder(j) << std::endl;
           set_pointer(j, get_pointer(j - 1));
         }
         //  Insert that new frontier node
